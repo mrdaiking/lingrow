@@ -37,6 +37,12 @@ export default function Home() {
                 <p className="text-sm">Loading...</p>
               ) : user ? (
                 <div className="flex items-center space-x-4">
+                  <Link 
+                    href="/practice" 
+                    className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                  >
+                    Practice
+                  </Link>
                   <span className="text-sm font-medium">
                     {user.email}
                   </span>
@@ -49,6 +55,12 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="flex items-center space-x-4">
+                  <Link 
+                    href="/practice" 
+                    className="text-sm font-medium text-blue-600 hover:text-blue-500 mr-2"
+                  >
+                    Practice
+                  </Link>
                   <Link
                     href="/login"
                     className="text-sm font-medium text-blue-600 hover:text-blue-500"

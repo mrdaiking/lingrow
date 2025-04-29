@@ -5,12 +5,21 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  TwitterAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
 // Create the authentication context
 const AuthContext = createContext();
+
+// Initialize providers
+const googleProvider = new GoogleAuthProvider();
+const facebookProvider = new FacebookAuthProvider();
+const twitterProvider = new TwitterAuthProvider();
 
 // Create a provider component for the auth context
 export function AuthProvider({ children }) {
@@ -64,6 +73,45 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    try {
+      setError(null);
+      const result = await signInWithPopup(auth, googleProvider);
+      setUser(result.user);
+      return result.user;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  // Sign in with Facebook
+  const signInWithFacebook = async () => {
+    try {
+      setError(null);
+      const result = await signInWithPopup(auth, facebookProvider);
+      setUser(result.user);
+      return result.user;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  // Sign in with Twitter
+  const signInWithTwitter = async () => {
+    try {
+      setError(null);
+      const result = await signInWithPopup(auth, twitterProvider);
+      setUser(result.user);
+      return result.user;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
   // Sign out the current user
   const logout = async () => {
     try {
@@ -82,7 +130,10 @@ export function AuthProvider({ children }) {
     error,
     register,
     login,
-    logout
+    logout,
+    signInWithGoogle,
+    signInWithFacebook,
+    signInWithTwitter
   };
 
   return (
