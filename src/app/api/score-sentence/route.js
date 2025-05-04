@@ -56,6 +56,7 @@ export async function POST(request) {
     return NextResponse.json({
       feedback: responseData.feedback,
       suggestedVersion: responseData.suggestedVersion,
+      learningTips: responseData.learningTips || '',
       score: responseData.score
     });
     

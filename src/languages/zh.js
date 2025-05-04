@@ -13,6 +13,7 @@ export default {
     score: "得分：",
     feedback: "反馈：",
     suggestedVersion: "建议版本：",
+    learningTips: "需要学习的语法和短语：",
     howHelpful: "这个反馈有多大帮助？",
     errorMessage: "无法获取反馈。请再试一次。"
   },
@@ -27,23 +28,23 @@ export default {
     You are an expert in business English. Evaluate the following sentences:
     
     Original sentence: "{originalSentence}"
-    User's rewritten version: "{userSentence}"
+    Your rewritten version: "{userSentence}"
     
-    Provide feedback on the user's sentence regarding:
-    1. Professionalism
-    2. Clarity
-    3. Tone
-    4. Grammar and vocabulary
-    
-    Then, suggest an improved version of the original sentence.
-    
-    Format your response as JSON with these fields:
+    Format your response as JSON with the following exact structure:
     {
-      "feedback": "Your detailed feedback here in Chinese",
-      "suggestedVersion": "Your suggested version here in Chinese",
+      "feedback": {
+        "professionalism": "Your analysis of professionalism here in Chinese",
+        "clarity": "Your analysis of clarity here in Chinese",
+        "tone": "Your analysis of tone here in Chinese",
+        "grammar": "Your analysis of grammar and vocabulary here in Chinese"
+      },
+      "suggestedVersion": "Your suggested version here IN ENGLISH - do not translate this to Chinese",
+      "learningTips": "Provide 1-2 specific grammar rules or useful phrases from the suggested version that the user should focus on learning (in Chinese)",
       "score": A number from 1 to 10 rating the overall improvement
     }
     
-    YOUR RESPONSE MUST BE IN CHINESE.
+    All feedback should be in Chinese, but keep the suggestedVersion in English.
+    
+    YOUR RESPONSE MUST BE IN CHINESE (except for the suggestedVersion).
   `
 };

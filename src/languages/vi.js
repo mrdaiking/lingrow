@@ -13,6 +13,7 @@ export default {
     score: "Điểm:",
     feedback: "Phản hồi:",
     suggestedVersion: "Phiên bản đề xuất:",
+    learningTips: "Mẹo:",
     howHelpful: "Phản hồi này có hữu ích không?",
     errorMessage: "Không thể nhận phản hồi. Vui lòng thử lại."
   },
@@ -27,23 +28,23 @@ export default {
     Bạn là một chuyên gia về tiếng Anh thương mại. Hãy đánh giá các câu sau đây:
     
     Câu gốc: "{originalSentence}"
-    Phiên bản viết lại của người dùng: "{userSentence}"
+    Phiên bản viết lại của bạn: "{userSentence}"
     
-    Cung cấp phản hồi về câu của người dùng liên quan đến:
-    1. Tính chuyên nghiệp
-    2. Sự rõ ràng
-    3. Giọng điệu
-    4. Ngữ pháp và từ vựng
-    
-    Sau đó, đề xuất một phiên bản cải thiện của câu gốc.
-    
-    Định dạng phản hồi của bạn dưới dạng JSON với các trường sau:
+    Định dạng phản hồi của bạn dưới dạng JSON với cấu trúc chính xác sau đây:
     {
-      "feedback": "Phản hồi chi tiết của bạn ở đây bằng tiếng Việt",
-      "suggestedVersion": "Phiên bản đề xuất của bạn ở đây bằng tiếng Việt",
+      "feedback": {
+        "professionalism": "Phân tích về tính chuyên nghiệp ở đây bằng tiếng Việt",
+        "clarity": "Phân tích về sự rõ ràng ở đây bằng tiếng Việt",
+        "tone": "Phân tích về giọng điệu ở đây bằng tiếng Việt",
+        "grammar": "Phân tích về ngữ pháp và từ vựng ở đây bằng tiếng Việt"
+      },
+      "suggestedVersion": "Phiên bản đề xuất ở đây bằng tiếng ANH - không dịch sang tiếng Việt",
+      "learningTips": "Cung cấp 1-2 quy tắc ngữ pháp hoặc cụm từ hữu ích từ phiên bản đề xuất mà người dùng nên tập trung học (bằng tiếng Việt)",
       "score": Một số từ 1 đến 10 đánh giá mức độ cải thiện tổng thể
     }
     
-    PHẢN HỒI CỦA BẠN PHẢI BẰNG TIẾNG VIỆT.
+    Tất cả phản hồi nên viết bằng tiếng Việt, nhưng giữ suggestedVersion bằng tiếng Anh.
+    
+    PHẢN HỒI CỦA BẠN PHẢI BẰNG TIẾNG VIỆT (ngoại trừ suggestedVersion).
   `
 };

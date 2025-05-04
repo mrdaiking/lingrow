@@ -1,26 +1,32 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { savePracticeHistory } from '../services/practiceHistory';
 
 export default function PracticeSentence({ originalSentence = "I finished the task." }) {
   const { translations, language } = useLanguage();
+  const { user } = useAuth();
   const { practice: t, feedback: f } = translations;
 
   const [userSentence, setUserSentence] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [suggestedVersion, setSuggestedVersion] = useState('');
+  const [learningTips, setLearningTips] = useState('');
   const [reaction, setReaction] = useState(null);
   const [score, setScore] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [historySaved, setHistorySaved] = useState(false);
   const abortControllerRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setHistorySaved(false);
     
     // Create a new AbortController instance
     abortControllerRef.current = new AbortController();
@@ -48,8 +54,28 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
       const data = await response.json();
       setFeedback(data.feedback);
       setSuggestedVersion(data.suggestedVersion);
+      setLearningTips(data.learningTips || '');
       setScore(data.score);
       setIsSubmitted(true);
+      
+      // Save to practice history if user is logged in
+      if (user) {
+        try {
+          await savePracticeHistory(user.uid, {
+            originalSentence,
+            userSentence,
+            suggestedVersion: data.suggestedVersion,
+            feedback: data.feedback,
+            learningTips: data.learningTips || '',
+            score: data.score,
+            language
+          });
+          setHistorySaved(true);
+        } catch (historyError) {
+          console.error('Error saving practice history:', historyError);
+          // Don't show this error to the user, as the main functionality still works
+        }
+      }
     } catch (err) {
       // Check if this was a cancellation error
       if (err.name === 'AbortError') {
@@ -62,6 +88,30 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
       setIsLoading(false);
     }
   };
+
+  // Update reaction in history when it changes
+  useEffect(() => {
+    const updateReaction = async () => {
+      if (user && isSubmitted && reaction && historySaved) {
+        try {
+          await savePracticeHistory(user.uid, {
+            originalSentence,
+            userSentence,
+            suggestedVersion,
+            feedback,
+            learningTips: learningTips || '',
+            score,
+            language,
+            reaction
+          });
+        } catch (err) {
+          console.error('Error updating reaction in history:', err);
+        }
+      }
+    };
+    
+    updateReaction();
+  }, [reaction]);
 
   const handleCancel = () => {
     // Cancel the ongoing request
@@ -85,13 +135,26 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
     setReaction(null);
     setFeedback('');
     setSuggestedVersion('');
+    setLearningTips('');
     setScore(null);
     setError(null);
+    setHistorySaved(false);
   };
 
   const renderFeedback = () => {
     // If feedback is a string, try to parse it for common patterns like numbered points
     if (typeof feedback === 'string') {
+      // Try to parse string feedback in case it's JSON
+      try {
+        const parsedFeedback = JSON.parse(feedback);
+        if (parsedFeedback && typeof parsedFeedback === 'object') {
+          // Handle the parsed object
+          return renderObjectFeedback(parsedFeedback);
+        }
+      } catch (e) {
+        // Not JSON, continue with string handling
+      }
+      
       // Check if the feedback contains numbered points (like "1. Professionalism:")
       if (feedback.match(/\d+\.\s+\w+:/)) {
         // Split by numbered points
@@ -132,35 +195,46 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
         </div>
       );
     }
+
+    console.log('Rendering feedback object:', feedback);
     
     // Handle object-based feedback
     if (typeof feedback === 'object' && feedback !== null) {
-      return (
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          {Object.entries(feedback).map(([category, content], index) => {
-            // Try to translate the category
-            const translatedCategory = f[category.toLowerCase()] || category;
-            
-            return (
-              <div key={category} className={`${index > 0 ? 'mt-4 pt-4 border-t border-gray-100' : ''}`}>
-                <div className="flex items-center mb-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-2 font-medium text-sm">
-                    {index + 1}
-                  </div>
-                  <h4 className="font-medium text-blue-600 capitalize">{translatedCategory}</h4>
-                </div>
-                <div className="ml-8 text-gray-700">{content}</div>
-              </div>
-            );
-          })}
-        </div>
-      );
+      return renderObjectFeedback(feedback);
     }
     
     // Fallback for no feedback
     return (
       <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm text-gray-500 italic">
         {f.noFeedback}
+      </div>
+    );
+  };
+  
+  // Helper function to render object-based feedback consistently
+  const renderObjectFeedback = (feedbackObj) => {
+    console.log('Rendering feedback object:', feedbackObj);
+    return (
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        {Object.entries(feedbackObj).map(([category, content], index) => {
+          // Skip if this is not a feedback category (like score or suggestedVersion)
+          if (category === 'score' || category === 'suggestedVersion') return null;
+          
+          // Try to translate the category
+          const translatedCategory = f[category.toLowerCase()] || category;
+          
+          return (
+            <div key={category} className={`${index > 0 ? 'mt-4 pt-4 border-t border-gray-100' : ''}`}>
+              <div className="flex items-center mb-2">
+                <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-2 font-medium text-sm">
+                  {index + 1}
+                </div>
+                <h4 className="font-medium text-blue-600 capitalize">{translatedCategory}</h4>
+              </div>
+              <div className="ml-8 text-gray-700">{content}</div>
+            </div>
+          );
+        }).filter(Boolean)}
       </div>
     );
   };
@@ -268,6 +342,15 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
                 {suggestedVersion}
               </div>
             </div>
+
+            {learningTips && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">{t.learningTips}</h3>
+                <div className="bg-white p-3 rounded border border-gray-200 text-gray-800">
+                  {learningTips}
+                </div>
+              </div>
+            )}
             
             {/* Reaction buttons */}
             <div className="mt-4">
