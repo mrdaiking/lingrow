@@ -5,7 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { savePracticeHistory } from '../services/practiceHistory';
 
-export default function PracticeSentence({ originalSentence = "I finished the task." }) {
+export default function PracticeSentence({ originalSentence, mode = 'improve', keywords = [] }) {
   const { translations, language } = useLanguage();
   const { user } = useAuth();
   const { practice: t, feedback: f } = translations;
@@ -21,6 +21,30 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
   const [error, setError] = useState(null);
   const [historySaved, setHistorySaved] = useState(false);
   const abortControllerRef = useRef(null);
+  const [currentKeywords, setCurrentKeywords] = useState(keywords);
+
+  // Function to shuffle and pick a random set of keywords if in keyword mode
+  const shuffleKeywords = () => {
+    if (mode === 'keywords' && Array.isArray(keywords) && keywords.length > 0) {
+      // If we have multiple keyword sets, select a random one
+      if (Array.isArray(keywords[0])) {
+        const randomIndex = Math.floor(Math.random() * keywords.length);
+        setCurrentKeywords(keywords[randomIndex]);
+      } else {
+        setCurrentKeywords(keywords);
+      }
+      
+      // Reset state when shuffling
+      handleReset();
+    }
+  };
+
+  // Initialize keywords on component mount
+  useEffect(() => {
+    if (mode === 'keywords') {
+      shuffleKeywords();
+    }
+  }, [mode, keywords]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,47 +57,93 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
     const { signal } = abortControllerRef.current;
     
     try {
-      // Call our API endpoint to get AI feedback
-      const response = await fetch('/api/score-sentence', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          originalSentence,
-          userSentence,
-          language // Pass the selected language to the API
-        }),
-        signal: signal, // Pass the signal to the fetch request
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to get feedback');
-      }
-      
-      const data = await response.json();
-      setFeedback(data.feedback);
-      setSuggestedVersion(data.suggestedVersion);
-      setLearningTips(data.learningTips || '');
-      setScore(data.score);
-      setIsSubmitted(true);
-      
-      // Save to practice history if user is logged in
-      if (user) {
-        try {
-          await savePracticeHistory(user.uid, {
+      // Different API endpoints and data depending on mode
+      if (mode === 'improve') {
+        // Traditional sentence improvement mode
+        const response = await fetch('/api/score-sentence', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
             originalSentence,
             userSentence,
-            suggestedVersion: data.suggestedVersion,
-            feedback: data.feedback,
-            learningTips: data.learningTips || '',
-            score: data.score,
             language
-          });
-          setHistorySaved(true);
-        } catch (historyError) {
-          console.error('Error saving practice history:', historyError);
-          // Don't show this error to the user, as the main functionality still works
+          }),
+          signal: signal,
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to get feedback');
+        }
+        
+        const data = await response.json();
+        setFeedback(data.feedback);
+        setSuggestedVersion(data.suggestedVersion);
+        setLearningTips(data.learningTips || '');
+        setScore(data.score);
+        setIsSubmitted(true);
+        
+        // Save to practice history if user is logged in
+        if (user) {
+          try {
+            await savePracticeHistory(user.uid, {
+              originalSentence,
+              userSentence,
+              suggestedVersion: data.suggestedVersion,
+              feedback: data.feedback,
+              learningTips: data.learningTips || '',
+              score: data.score,
+              language
+            });
+            setHistorySaved(true);
+          } catch (historyError) {
+            console.error('Error saving practice history:', historyError);
+          }
+        }
+      } else if (mode === 'keywords') {
+        // Keyword challenge mode - Send to API directly without client-side keyword validation
+        // Let the API handle tense variations and grammatical forms
+        const response = await fetch('/api/validate-sentence', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userSentence,
+            keywords: currentKeywords,
+            language
+          }),
+          signal: signal,
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to get feedback');
+        }
+        
+        const data = await response.json();
+        setFeedback(data.feedback);
+        setSuggestedVersion(data.suggestedVersion);
+        setLearningTips(data.learningTips || '');
+        setScore(data.score);
+        setIsSubmitted(true);
+        
+        // Save to practice history if user is logged in
+        if (user) {
+          try {
+            await savePracticeHistory(user.uid, {
+              userSentence,
+              suggestedVersion: data.suggestedVersion,
+              feedback: data.feedback,
+              learningTips: data.learningTips || '',
+              score: data.score,
+              language,
+              keywords: currentKeywords
+            });
+            setHistorySaved(true);
+          } catch (historyError) {
+            console.error('Error saving practice history:', historyError);
+          }
         }
       }
     } catch (err) {
@@ -94,8 +164,7 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
     const updateReaction = async () => {
       if (user && isSubmitted && reaction && historySaved) {
         try {
-          await savePracticeHistory(user.uid, {
-            originalSentence,
+          const historyData = {
             userSentence,
             suggestedVersion,
             feedback,
@@ -103,7 +172,16 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
             score,
             language,
             reaction
-          });
+          };
+          
+          // Add mode-specific properties
+          if (mode === 'improve') {
+            historyData.originalSentence = originalSentence;
+          } else if (mode === 'keywords') {
+            historyData.keywords = currentKeywords;
+          }
+          
+          await savePracticeHistory(user.uid, historyData);
         } catch (err) {
           console.error('Error updating reaction in history:', err);
         }
@@ -142,6 +220,15 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
   };
 
   const renderFeedback = () => {
+    // If feedback is an object with feedbackMessage (keyword challenge format)
+    if (typeof feedback === 'object' && feedback !== null && feedback.feedbackMessage) {
+      return (
+        <div className="bg-blue-50 p-3 rounded border border-blue-200 text-blue-800">
+          {feedback.feedbackMessage}
+        </div>
+      );
+    }
+    
     // If feedback is a string, try to parse it for common patterns like numbered points
     if (typeof feedback === 'string') {
       // Try to parse string feedback in case it's JSON
@@ -218,7 +305,8 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
       <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
         {Object.entries(feedbackObj).map(([category, content], index) => {
           // Skip if this is not a feedback category (like score or suggestedVersion)
-          if (category === 'score' || category === 'suggestedVersion') return null;
+          if (category === 'score' || category === 'suggestedVersion' || 
+              category === 'suggestedSentence' || category === 'feedbackMessage') return null;
           
           // Try to translate the category
           const translatedCategory = f[category.toLowerCase()] || category;
@@ -242,22 +330,58 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
   return (
     <div className="max-w-2xl mx-auto p-4 my-8">
       <header className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">{t.title}</h2>
-        <p className="text-gray-600">{t.subtitle}</p>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          {mode === 'improve' ? t.title : 'Keyword Challenge'}
+        </h2>
+        <p className="text-gray-600">
+          {mode === 'improve' ? t.subtitle : 'Create a complete sentence using all the keywords below'}
+        </p>
       </header>
 
       <div className="bg-white rounded-2xl shadow-md overflow-hidden">
-        {/* Original sentence display */}
-        <div className="p-6 bg-blue-50 border-b border-blue-100">
-          <h3 className="text-sm font-medium text-blue-800 mb-2">{t.originalSentence}</h3>
-          <p className="text-gray-800 font-medium">{originalSentence}</p>
-        </div>
+        {/* Content differs based on mode */}
+        {mode === 'improve' ? (
+          /* Original sentence display for improve mode */
+          <div className="p-6 bg-blue-50 border-b border-blue-100">
+            <h3 className="text-sm font-medium text-blue-800 mb-2">{t.originalSentence}</h3>
+            <p className="text-gray-800 font-medium">{originalSentence}</p>
+          </div>
+        ) : (
+          /* Keywords display for keyword mode */
+          <div className="p-6 bg-blue-50 border-b border-blue-100">
+            <h3 className="text-sm font-medium text-blue-800 mb-2">Keywords:</h3>
+            <div className="flex flex-wrap gap-2">
+              {currentKeywords.map((keyword, index) => (
+                <div 
+                  key={index} 
+                  className="px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full font-medium text-sm"
+                >
+                  {keyword}
+                </div>
+              ))}
+            </div>
+            {/* Shuffle button for keyword mode */}
+            {Array.isArray(keywords) && keywords.length > 0 && (
+              <div className="mt-4 text-center">
+                <button 
+                  onClick={shuffleKeywords}
+                  className="inline-flex items-center px-4 py-1.5 bg-white border border-blue-100 hover:bg-gray-50 text-blue-700 rounded-lg transition-colors duration-200 text-sm"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Shuffle Keywords
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* User input section */}
         <form onSubmit={handleSubmit} className="p-6">
           <div className="mb-4">
             <label htmlFor="userSentence" className="block text-sm font-medium text-gray-700 mb-2">
-              {t.yourImprovedVersion}
+              {mode === 'improve' ? t.yourImprovedVersion : 'Write your sentence:'}
             </label>
             <textarea
               id="userSentence"
@@ -265,7 +389,7 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
               onChange={(e) => setUserSentence(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-500 bg-transparent text-inherit"
-              placeholder={t.placeholder}
+              placeholder={mode === 'improve' ? t.placeholder : 'Type your sentence using all the keywords...'}
               required
               disabled={isSubmitted || isLoading}
             />
@@ -300,7 +424,7 @@ export default function PracticeSentence({ originalSentence = "I finished the ta
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg px-4 py-2.5 transition-colors duration-200"
               >
-                {t.getFeedback}
+                {mode === 'improve' ? t.getFeedback : 'Submit Sentence'}
               </button>
             )
           ) : (

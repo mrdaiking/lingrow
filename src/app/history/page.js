@@ -156,6 +156,9 @@ function HistoryItem({ item, translations }) {
   const [expanded, setExpanded] = useState(false);
   const { practice: t, history: h = {}, feedback: f } = translations;
   
+  // Check if this is a keyword challenge entry
+  const isKeywordChallenge = item.keywords && Array.isArray(item.keywords);
+  
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-4">
@@ -176,13 +179,35 @@ function HistoryItem({ item, translations }) {
             </div>
             
             <div>
-              <h3 className="text-sm font-medium text-gray-700">{t.originalSentence}</h3>
-              <p className="text-gray-800 mb-3">{item.originalSentence}</p>
+              {/* Display keywords if this is a keyword challenge entry */}
+              {isKeywordChallenge && (
+                <>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Keywords:</h3>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {item.keywords.map((keyword, index) => (
+                      <div 
+                        key={index} 
+                        className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                      >
+                        {keyword}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               
-              <h3 className="text-sm font-medium text-gray-700">{t.yourVersion}</h3>
+              {/* Show original sentence if available (traditional practice) */}
+              {item.originalSentence && (
+                <>
+                  <h3 className="text-sm font-medium text-gray-700">{t.originalSentence || "Original Sentence"}</h3>
+                  <p className="text-gray-800 mb-3">{item.originalSentence}</p>
+                </>
+              )}
+              
+              <h3 className="text-sm font-medium text-gray-700">{t.yourVersion || "Your Sentence"}</h3>
               <p className="text-gray-800 mb-3">{item.userSentence}</p>
               
-              <h3 className="text-sm font-medium text-gray-700">{t.suggestedVersion}</h3>
+              <h3 className="text-sm font-medium text-gray-700">{t.suggestedVersion || "Suggested Version"}</h3>
               <p className="text-blue-600 font-medium">{item.suggestedVersion}</p>
             </div>
           </div>
@@ -197,12 +222,15 @@ function HistoryItem({ item, translations }) {
         
         {expanded && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">{t.feedback}</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">{t.feedback || "Feedback"}</h3>
+            
+            {/* Handle different feedback formats */}
             {typeof item.feedback === 'object' && item.feedback !== null ? (
               <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                 {Object.entries(item.feedback).map(([category, content], index) => {
                   // Skip if this is not a feedback category (like score or suggestedVersion)
-                  if (category === 'score' || category === 'suggestedVersion') return null;
+                  if (category === 'score' || category === 'suggestedVersion' || 
+                      category === 'suggestedSentence' || category === 'feedbackMessage') return null;
                   
                   // Try to translate the category
                   const translatedCategory = f[category.toLowerCase()] || category;
@@ -219,6 +247,13 @@ function HistoryItem({ item, translations }) {
                     </div>
                   );
                 }).filter(Boolean)}
+                
+                {/* Handle keyword challenge feedback format */}
+                {item.feedback.feedbackMessage && (
+                  <div className="bg-blue-50 p-3 rounded border border-blue-200 text-blue-800">
+                    {item.feedback.feedbackMessage}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
@@ -228,7 +263,7 @@ function HistoryItem({ item, translations }) {
             
             {item.learningTips && (
               <div className="mt-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">{t.learningTips}</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">{t.learningTips || "Learning Tips"}</h3>
                 <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm text-gray-700">
                   {item.learningTips}
                 </div>

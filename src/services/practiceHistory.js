@@ -30,7 +30,7 @@ export async function savePracticeHistory(userId, practiceData) {
 
     const entryData = {
       userId,
-      originalSentence: practiceData.originalSentence,
+      originalSentence: practiceData.originalSentence || null,
       userSentence: practiceData.userSentence,
       suggestedVersion: practiceData.suggestedVersion,
       feedback: practiceData.feedback,
@@ -38,6 +38,8 @@ export async function savePracticeHistory(userId, practiceData) {
       score: practiceData.score,
       language: practiceData.language,
       reaction: practiceData.reaction || null,
+      // Add keywords field for keyword challenge entries
+      keywords: practiceData.keywords || null,
       timestamp: serverTimestamp()
     };
 
